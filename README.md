@@ -34,11 +34,10 @@ Authentication and authorization are handled using **JWT** and **bcrypt** for pa
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/mahmud-reza-rafsun/next_level_b2_a2
+git clone https://github.com/mahmud-reza-rafsun/next_level_b6_a2
 cd YOUR_REPO
 Install dependencies
 
-bash
 Copy code
 npm install
 
@@ -51,6 +50,5 @@ DATABASE_URL=postgres://username:password@localhost:5432/db_name
 JWT_SECRET=your_jwt_secret
 Run the server
 
-bash
 Copy code
 npm run dev
