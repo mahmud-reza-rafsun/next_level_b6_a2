@@ -3,6 +3,7 @@ import initDB from "./config/db";
 import { userRouter } from "./modules/users/user.route";
 import { auhtRouter } from "./modules/auth/auth.route";
 import { vehicleRouter } from "./modules/vehicles/vehicle.route";
+import { bookingRouter } from "./modules/booking/booking.route";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use("/api/v1/auth", auhtRouter)
 // vehicle route
 
 app.use("/api/v1/vehicles", vehicleRouter)
+app.use("/api/v1/bookings", bookingRouter)
 
 
 // server listen
