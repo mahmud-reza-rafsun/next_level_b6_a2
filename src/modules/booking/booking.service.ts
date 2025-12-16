@@ -3,79 +3,132 @@ import { Roles } from "../auth/auth.constant";
 
 const createBooking = async (payload: any) => {
     if (!payload) {
-        throw new Error("Payload is Empty")
+        throw new Error("Payload is empty");
     }
+
     const { customer_id, vehicle_id, rent_start_date, rent_end_date } = payload;
+
+    if (!customer_id || !vehicle_id || !rent_start_date || !rent_end_date) {
+        throw new Error("All fields are required");
+    }
 
     const start_date = new Date(rent_start_date);
     const end_date = new Date(rent_end_date);
 
     if (end_date <= start_date) {
-        throw new Error("End date must be after start date")
+        throw new Error("End date must be after start date");
     }
 
-    const result = await pool.query(`SELECT * FROM vehicles WHERE id=$1`, [vehicle_id])
+    // Check vehicle
+    const vehicleRes = await pool.query(
+        `SELECT * FROM vehicles WHERE id=$1`,
+        [vehicle_id]
+    );
 
-    if (result.rows.length === 0) {
-        throw new Error("Vehicle not found")
+    if (vehicleRes.rows.length === 0) {
+        throw new Error("Vehicle not found");
     }
-    if (result.rows[0].availability_status === "booked") {
-        throw new Error("Vehicle already booked")
+
+    const vehicle = vehicleRes.rows[0];
+
+    if (vehicle.availability_status === "booked") {
+        throw new Error("Vehicle already booked");
     }
 
     // calculate price
-    const deffrenceTime = Math.abs(end_date.getTime() - start_date.getTime());
-    const deffrenceDays = Math.ceil(deffrenceTime / (1000 * 60 * 60 * 24)) || 1
-    const totalPrice = result.rows[0].daily_rent_price * deffrenceDays;
+    const diffTime = end_date.getTime() - start_date.getTime();
+    const diffDays =
+        Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
 
+    const totalPrice = Number(vehicle.daily_rent_price) * diffDays;
 
-    // booking
-
-    const bookingResult = await pool.query(
-        `INSERT INTO bookings(customer_id, vehicle_id, rent_start_date, rent_end_date, total_price, status)
-         VALUES($1,$2,$3,$4,$5,'active') RETURNING *`,
+    // Create booking
+    const bookingRes = await pool.query(
+        `INSERT INTO bookings
+     (customer_id, vehicle_id, rent_start_date, rent_end_date, total_price, status)
+     VALUES ($1,$2,$3,$4,$5,'active')
+     RETURNING *`,
         [customer_id, vehicle_id, rent_start_date, rent_end_date, totalPrice]
     );
 
-    return bookingResult
-}
+    // mark vehicle as booked
+    await pool.query(
+        `UPDATE vehicles SET availability_status='booked' WHERE id=$1`,
+        [vehicle_id]
+    );
+
+    return bookingRes.rows[0];
+};
 
 const getBookings = async (user: any) => {
+    if (!user) throw new Error("Unauthorized");
+
     if (user.role === Roles.admin) {
-        return await pool.query(`SELECT * FROM bookings`)
-    } else {
-        return await pool.query(`SELECT * FROM bookings WHERE customer_id=$1`, [user?.id])
+        const res = await pool.query(`SELECT * FROM bookings`);
+        return res.rows;
     }
-}
+
+    const res = await pool.query(
+        `SELECT * FROM bookings WHERE customer_id=$1`,
+        [user.id]
+    );
+    return res.rows;
+};
 
 const cancelBooking = async (bookingId: number, user: any) => {
-    const cancelBooking = await pool.query(`SELECT * FROM bookings WHERE id=$1`, [bookingId])
-    if (cancelBooking.rows.length === 0) {
-        throw new Error("Booking not found")
-    }
-    const booking = cancelBooking.rows[0]
+    if (!bookingId) throw new Error("Booking id is required");
 
-    // admin and customer
-    if (user.role !== Roles.admin && user.id !== booking.customer_id) {
-        throw new Error("unAuthorized")
-    }
-    const now = new Date();
-    if (user.role !== Roles.admin && new Date(booking.rent_start_date) <= now) {
-        throw new Error("Cannot cancel after start date");
-    }
-    await pool.query(`UPDATE bookings SET status='cancelled' WHERE id=$1`, [bookingId])
-
-    return cancelBooking
-}
-
-const markReturned = async (bookingId: number) => {
-    const bookingRes = await pool.query(
+    const res = await pool.query(
         `SELECT * FROM bookings WHERE id=$1`,
         [bookingId]
     );
-    if (bookingRes.rows.length === 0) throw new Error("Booking not found");
 
-    const booking = bookingRes.rows[0];
+    if (res.rows.length === 0) {
+        throw new Error("Booking not found");
+    }
+
+    const booking = res.rows[0];
+
+    // authorization
+    if (user.role !== Roles.admin && user.id !== booking.customer_id) {
+        throw new Error("Unauthorized");
+    }
+
+    // Customer cannot cancel after start date
+    if (
+        user.role !== Roles.admin &&
+        new Date(booking.rent_start_date) <= new Date()
+    ) {
+        throw new Error("Cannot cancel after start date");
+    }
+
+    await pool.query(
+        `UPDATE bookings SET status='cancelled' WHERE id=$1`,
+        [bookingId]
+    );
+
+    // make vehicle available again
+    await pool.query(
+        `UPDATE vehicles SET availability_status='available' WHERE id=$1`,
+        [booking.vehicle_id]
+    );
+
+    return { ...booking, status: "cancelled" };
+};
+
+const markReturned = async (bookingId: number) => {
+    if (!bookingId) throw new Error("Booking id is required");
+
+    const res = await pool.query(
+        `SELECT * FROM bookings WHERE id=$1`,
+        [bookingId]
+    );
+
+    if (res.rows.length === 0) {
+        throw new Error("Booking not found");
+    }
+
+    const booking = res.rows[0];
 
     await pool.query(
         `UPDATE bookings SET status='returned' WHERE id=$1`,
@@ -87,7 +140,7 @@ const markReturned = async (bookingId: number) => {
         [booking.vehicle_id]
     );
 
-    return bookingRes;
+    return { ...booking, status: "returned" };
 };
 
 export const bookingService = {
@@ -95,4 +148,4 @@ export const bookingService = {
     getBookings,
     cancelBooking,
     markReturned
-}
+};

@@ -6,91 +6,97 @@ const createVehicle = async (req: Request, res: Response) => {
         const result = await vehicleService.createVehicle(req.body);
         res.status(201).json({
             success: true,
-            message: "Vehicle inserted successfully!!!",
+            message: "Vehicle created successfully",
             data: result.rows[0]
-        })
+        });
     } catch (error: any) {
         res.status(500).json({
             success: false,
             message: error.message
-        })
+        });
     }
-}
+};
 
-const getAllVehicle = async (req: Request, res: Response) => {
+const getAllVehicle = async (_req: Request, res: Response) => {
     try {
         const result = await vehicleService.getAllVehicle();
-        res.status(201).json({
+        res.status(200).json({
             success: true,
-            message: "get all vehicle successfully!!!",
+            message: "Vehicles retrieved successfully",
             data: result.rows
-        })
+        });
     } catch (error: any) {
         res.status(500).json({
             success: false,
             message: error.message
-        })
+        });
     }
-}
+};
 
 const getSingleVehicle = async (req: Request, res: Response) => {
     const { id } = req.params
     try {
         const result = await vehicleService.getSingleVehicle(id as string);
-        res.status(201).json({
+        res.status(200).json({
             success: true,
-            message: "get single vehicle successfully!!!",
-            data: result.rows
-        })
+            message: "Vehicle retrieved successfully",
+            data: result.rows[0]
+        });
     } catch (error: any) {
         res.status(500).json({
             success: false,
             message: error.message
-        })
+        });
     }
-}
+};
 
 const updateVehicle = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { vehicle_name, type, registration_number, daily_rent_price, availability_status } = req.body
+    const { vehicle_name, type, registration_number, daily_rent_price, availability_status } = req.body;
     try {
-        const result = await vehicleService.updateVehicle(vehicle_name, type, registration_number, daily_rent_price, availability_status, id as string);
-        res.status(201).json({
+        const result = await vehicleService.updateVehicle(
+            vehicle_name,
+            type,
+            registration_number,
+            daily_rent_price,
+            availability_status,
+            id as string
+        );
+        res.status(200).json({
             success: true,
-            message: "update vehicle successfully!!!",
+            message: "Vehicle updated successfully",
             data: result.rows[0]
-        })
+        });
     } catch (error: any) {
         res.status(500).json({
             success: false,
             message: error.message
-        })
+        });
     }
-}
+};
 
 const deleteVehicle = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
         const result = await vehicleService.deleteVehicle(id as string);
-        if (result.rowCount === 0) {
+        if (!result.rowCount) {
             res.status(404).json({
                 success: false,
-                message: "User not found"
-            })
-        } else {
-            res.status(200).json({
-                success: true,
-                message: "vehicle delete successfully",
-                data: result.rows[0],
-            })
+                message: "Vehicle not found"
+            });
+            return;
         }
+        res.status(200).json({
+            success: true,
+            message: "Vehicle deleted successfully"
+        });
     } catch (error: any) {
         res.status(500).json({
             success: false,
             message: error.message
-        })
+        });
     }
-}
+};
 
 export const vehicleController = {
     createVehicle,
@@ -98,4 +104,4 @@ export const vehicleController = {
     getSingleVehicle,
     updateVehicle,
     deleteVehicle
-}
+};
